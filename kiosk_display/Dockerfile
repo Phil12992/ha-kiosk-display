@@ -56,8 +56,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends wlopm squeekboa
 
 COPY rootfs /
 
-RUN dos2unix /usr/bin/*.sh /etc/s6-overlay/s6-rc.d/*/run /etc/s6-overlay/s6-rc.d/*/up /etc/s6-overlay/s6-rc.d/*/finish || true \
-    && chmod a+x /usr/bin/*.sh /etc/s6-overlay/s6-rc.d/*/run /etc/s6-overlay/s6-rc.d/*/up /etc/s6-overlay/s6-rc.d/*/finish || true
+RUN for f in /usr/bin/*.sh /etc/s6-overlay/s6-rc.d/*/run /etc/s6-overlay/s6-rc.d/*/up /etc/s6-overlay/s6-rc.d/*/finish; do \
+      if [ -f "$f" ]; then \
+        dos2unix "$f" 2>/dev/null || true; \
+        chmod a+x "$f" || true; \
+      fi; \
+    done
 
 LABEL \
     io.hass.name="${BUILD_NAME}" \
@@ -65,3 +69,4 @@ LABEL \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
     io.hass.version="${BUILD_VERSION}"
+
