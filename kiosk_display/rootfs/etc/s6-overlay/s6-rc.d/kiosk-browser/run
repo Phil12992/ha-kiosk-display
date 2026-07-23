@@ -1,0 +1,42 @@
+#!/command/with-contenv bashio
+
+# Source environment
+if [ -f /var/run/kiosk/env.sh ]; then
+    source /var/run/kiosk/env.sh
+fi
+
+# In cage mode, the browser is started by cage directly
+# This service becomes a no-op
+if [ "${KIOSK_DISPLAY_SERVER}" = "cage" ]; then
+    bashio::log.info "Browser is managed by Cage compositor, sleeping..."
+    exec sleep infinity
+fi
+
+# For weston/xorg mode, start browser separately
+export XDG_RUNTIME_DIR=/run/user/0
+
+if [ "${KIOSK_DISPLAY_SERVER}" = "weston" ]; then
+    export WAYLAND_DISPLAY=wayland-0
+    # Wait for Wayland socket
+    TRIES=0
+    while [ ! -e "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" ] && [ ${TRIES} -lt 30 ]; do
+        bashio::log.debug "Waiting for Wayland socket... (${TRIES}/30)"
+        sleep 1
+        TRIES=$((TRIES + 1))
+    done
+    if [ ! -e "${XDG_RUNTIME_DIR}/${WAYLAND_DISPLAY}" ]; then
+        bashio::log.fatal "Wayland socket not found after 30 seconds!"
+        exit 1
+    fi
+elif [ "${KIOSK_DISPLAY_SERVER}" = "xorg" ]; then
+    export DISPLAY=:0
+    # Wait for X server
+    TRIES=0
+    while ! xdpyinfo > /dev/null 2>&1 && [ ${TRIES} -lt 30 ]; do
+        bashio::log.debug "Waiting for X server... (${TRIES}/30)"
+        sleep 1
+        TRIES=$((TRIES + 1))
+    done
+fi
+
+exec /usr/bin/kiosk-browser.sh

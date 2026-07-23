@@ -1,0 +1,61 @@
+configuration:
+  ha_url:
+    name: Home Assistant URL
+    description: "URL of your Home Assistant instance. Leave empty to use the internal Supervisor URL."
+  dashboard:
+    name: Dashboard
+    description: "Path to the dashboard to display (e.g., 'lovelace/default_view' or 'lovelace-kiosk/0')."
+  username:
+    name: Username
+    description: "Home Assistant username for auto-login."
+  password:
+    name: Password
+    description: "Home Assistant password for auto-login."
+  token:
+    name: Long-Lived Access Token
+    description: "Long-Lived Access Token for authentication. Preferred over username/password."
+  zoom:
+    name: Zoom Level
+    description: "Browser zoom level in percent (25-500). Default: 100."
+  dark_mode:
+    name: Dark Mode
+    description: "Force dark mode in the browser."
+  refresh_interval:
+    name: Refresh Interval
+    description: "Automatically reload the page after this many seconds. Set to 0 to disable."
+  screen_timeout:
+    name: Screen Timeout
+    description: "Turn off the screen after this many seconds of inactivity. Set to 0 to disable."
+  rotate_display:
+    name: Display Rotation
+    description: "Rotate the display output (normal, 90, 180, 270 degrees)."
+  output_number:
+    name: HDMI Output
+    description: "Select the HDMI output (0=auto, 1=HDMI-0, 2=HDMI-1)."
+  audio_sink:
+    name: Audio Output
+    description: "Audio output device. Use 'auto' for automatic selection."
+  cursor_timeout:
+    name: Cursor Timeout
+    description: "Hide the mouse cursor after this many seconds of inactivity."
+  touch_enabled:
+    name: Touchscreen Support
+    description: "Enable touchscreen input support."
+  touch_mapping:
+    name: Touch Mapping
+    description: "Map touchscreen to display. Use 'auto' for automatic mapping."
+  onscreen_keyboard:
+    name: On-Screen Keyboard
+    description: "Enable the on-screen keyboard for text input."
+  display_server:
+    name: Display Server
+    description: "Display server to use: auto (recommended), cage (Wayland), weston (Wayland fallback), xorg (legacy)."
+  browser_flags:
+    name: Additional Browser Flags
+    description: "Additional Chromium command-line flags (advanced users only)."
+  api_enabled:
+    name: REST API
+    description: "Enable the REST API for controlling the kiosk display."
+  api_port:
+    name: API Port
+    description: "Port for the REST API server."

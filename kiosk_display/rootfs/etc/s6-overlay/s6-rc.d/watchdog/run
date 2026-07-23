@@ -1,0 +1,94 @@
+#!/command/with-contenv bashio
+
+bashio::log.info "Kiosk watchdog started"
+
+# Source environment
+if [ -f /var/run/kiosk/env.sh ]; then
+    source /var/run/kiosk/env.sh
+fi
+
+SCREEN_TIMEOUT=$(bashio::config 'screen_timeout')
+REFRESH_INTERVAL=$(bashio::config 'refresh_interval')
+LAST_REFRESH=$(date +%s)
+LAST_ACTIVITY=$(date +%s)
+
+while true; do
+    sleep 10
+    NOW=$(date +%s)
+
+    # === Check 1: Chromium running ===
+    if ! pgrep -x chromium > /dev/null 2>&1 && ! pgrep -f "chromium-browser" > /dev/null 2>&1; then
+        bashio::log.warning "Chromium process not found!"
+        if [ "${KIOSK_DISPLAY_SERVER}" = "cage" ]; then
+            bashio::log.warning "Cage+Chromium died, restarting display-server..."
+            s6-svc -r /run/service/display-server 2>/dev/null || true
+        else
+            bashio::log.warning "Restarting kiosk-browser..."
+            s6-svc -r /run/service/kiosk-browser 2>/dev/null || true
+        fi
+        sleep 15
+        continue
+    fi
+
+    # === Check 2: Display server running ===
+    case "${KIOSK_DISPLAY_SERVER}" in
+        cage)
+            if ! pgrep -x cage > /dev/null 2>&1; then
+                bashio::log.error "Cage compositor crashed! Restarting..."
+                s6-svc -r /run/service/display-server 2>/dev/null || true
+                sleep 10
+                continue
+            fi
+            ;;
+        weston)
+            if ! pgrep -x weston > /dev/null 2>&1; then
+                bashio::log.error "Weston compositor crashed! Restarting..."
+                s6-svc -r /run/service/display-server 2>/dev/null || true
+                sleep 10
+                continue
+            fi
+            ;;
+        xorg)
+            if ! pgrep -x Xorg > /dev/null 2>&1; then
+                bashio::log.error "Xorg server crashed! Restarting..."
+                s6-svc -r /run/service/display-server 2>/dev/null || true
+                sleep 10
+                continue
+            fi
+            ;;
+    esac
+
+    # === Check 3: GPU still available ===
+    if [ ! -e /dev/dri/card0 ]; then
+        bashio::log.error "GPU device /dev/dri/card0 not found!"
+    fi
+
+    # === Check 4: Monitor connected ===
+    for connector in /sys/class/drm/card*-*/status; do
+        if [ -f "${connector}" ]; then
+            STATUS=$(cat "${connector}" 2>/dev/null)
+            if [ "${STATUS}" = "disconnected" ]; then
+                CONNECTOR_NAME=$(basename $(dirname "${connector}"))
+                bashio::log.debug "Monitor ${CONNECTOR_NAME} disconnected"
+            fi
+        fi
+    done
+
+    # === Check 5: Screen timeout ===
+    if [ "${SCREEN_TIMEOUT}" -gt 0 ]; then
+        ELAPSED=$((NOW - LAST_ACTIVITY))
+        if [ ${ELAPSED} -ge ${SCREEN_TIMEOUT} ]; then
+            /usr/bin/screen-control.sh off 2>/dev/null || true
+        fi
+    fi
+
+    # === Check 6: Page refresh ===
+    if [ "${REFRESH_INTERVAL}" -gt 0 ]; then
+        ELAPSED=$((NOW - LAST_REFRESH))
+        if [ ${ELAPSED} -ge ${REFRESH_INTERVAL} ]; then
+            bashio::log.info "Refreshing browser page (interval: ${REFRESH_INTERVAL}s)"
+            /usr/bin/screen-control.sh reload 2>/dev/null || true
+            LAST_REFRESH=${NOW}
+        fi
+    fi
+done

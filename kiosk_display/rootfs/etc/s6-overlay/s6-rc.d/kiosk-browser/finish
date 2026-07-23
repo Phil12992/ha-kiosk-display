@@ -1,0 +1,11 @@
+#!/command/with-contenv bashio
+bashio::log.warning "Kiosk browser crashed! Cleaning up before restart..."
+# Remove crash flags so chromium doesn't show restore dialog
+rm -rf /data/chromium-profile/Default/Preferences.bak 2>/dev/null
+if [ -f /data/chromium-profile/Default/Preferences ]; then
+    # Remove exit_type crash marker
+    jq '.profile.exit_type = "Normal" | .profile.exited_cleanly = true' \
+        /data/chromium-profile/Default/Preferences > /tmp/prefs.tmp 2>/dev/null && \
+        mv /tmp/prefs.tmp /data/chromium-profile/Default/Preferences
+fi
+sleep 3

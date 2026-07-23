@@ -1,0 +1,87 @@
+name: "Kiosk Display"
+version: "1.0.0"
+slug: "kiosk_display"
+description: "Displays Home Assistant dashboards in fullscreen kiosk mode on an HDMI-connected monitor"
+url: "https://github.com/user/ha-kiosk-display"
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: auto
+init: true
+
+# Hardware access
+full_access: true
+udev: true
+host_ipc: true
+audio: true
+apparmor: false
+
+devices:
+  - /dev/dri
+  - /dev/fb0
+  - /dev/input
+  - /dev/tty0
+  - /dev/tty7
+
+# Network & API
+homeassistant_api: true
+auth_api: true
+ingress: true
+ingress_port: 8099
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: "Kiosk REST API"
+
+# Storage mappings
+map:
+  - addon_config:rw
+  - media:rw
+  - share:rw
+  - ssl:ro
+
+# Configuration options
+options:
+  ha_url: ""
+  dashboard: ""
+  username: ""
+  password: ""
+  token: ""
+  zoom: 100
+  dark_mode: true
+  refresh_interval: 0
+  screen_timeout: 0
+  rotate_display: "normal"
+  output_number: 0
+  audio_sink: "auto"
+  cursor_timeout: 5
+  touch_enabled: true
+  touch_mapping: "auto"
+  onscreen_keyboard: false
+  display_server: "auto"
+  browser_flags: ""
+  api_enabled: true
+  api_port: 8099
+
+schema:
+  ha_url: "url?"
+  dashboard: "str?"
+  username: "str?"
+  password: "password?"
+  token: "password?"
+  zoom: "int(25,500)"
+  dark_mode: "bool"
+  refresh_interval: "int(0,86400)"
+  screen_timeout: "int(0,86400)"
+  rotate_display: "list(normal|90|180|270)"
+  output_number: "int(0,9)"
+  audio_sink: "str?"
+  cursor_timeout: "int(0,60)"
+  touch_enabled: "bool"
+  touch_mapping: "str?"
+  onscreen_keyboard: "bool"
+  display_server: "list(auto|cage|weston|xorg)"
+  browser_flags: "str?"
+  api_enabled: "bool"
+  api_port: "port"

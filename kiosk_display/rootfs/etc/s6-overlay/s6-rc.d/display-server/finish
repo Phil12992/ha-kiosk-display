@@ -1,0 +1,3 @@
+#!/command/with-contenv bashio
+bashio::log.warning "Display server stopped, will be restarted by s6..."
+sleep 2

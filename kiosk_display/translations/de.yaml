@@ -1,0 +1,61 @@
+configuration:
+  ha_url:
+    name: Home Assistant URL
+    description: "URL deiner Home Assistant Instanz. Leer lassen für die interne Supervisor-URL."
+  dashboard:
+    name: Dashboard
+    description: "Pfad zum Dashboard (z.B. 'lovelace/default_view' oder 'lovelace-kiosk/0')."
+  username:
+    name: Benutzername
+    description: "Home Assistant Benutzername für den automatischen Login."
+  password:
+    name: Passwort
+    description: "Home Assistant Passwort für den automatischen Login."
+  token:
+    name: Langzeit-Zugriffstoken
+    description: "Langzeit-Zugriffstoken (Long-Lived Access Token) für die Authentifizierung. Wird gegenüber Benutzername/Passwort bevorzugt."
+  zoom:
+    name: Zoom-Stufe
+    description: "Browser-Zoom in Prozent (25-500). Standard: 100."
+  dark_mode:
+    name: Dunkelmodus
+    description: "Dunkelmodus im Browser erzwingen."
+  refresh_interval:
+    name: Aktualisierungsintervall
+    description: "Seite nach dieser Anzahl Sekunden automatisch neu laden. 0 zum Deaktivieren."
+  screen_timeout:
+    name: Bildschirm-Timeout
+    description: "Bildschirm nach dieser Anzahl Sekunden Inaktivität ausschalten. 0 zum Deaktivieren."
+  rotate_display:
+    name: Bildschirmrotation
+    description: "Bildschirmausgabe drehen (normal, 90, 180, 270 Grad)."
+  output_number:
+    name: HDMI-Ausgang
+    description: "HDMI-Ausgang wählen (0=Automatisch, 1=HDMI-0, 2=HDMI-1)."
+  audio_sink:
+    name: Audio-Ausgang
+    description: "Audio-Ausgabegerät. 'auto' für automatische Erkennung."
+  cursor_timeout:
+    name: Mauszeiger-Timeout
+    description: "Mauszeiger nach dieser Anzahl Sekunden Inaktivität ausblenden."
+  touch_enabled:
+    name: Touchscreen-Unterstützung
+    description: "Touchscreen-Eingabe aktivieren."
+  touch_mapping:
+    name: Touch-Zuordnung
+    description: "Touchscreen dem Bildschirm zuordnen. 'auto' für automatische Zuordnung."
+  onscreen_keyboard:
+    name: Bildschirmtastatur
+    description: "Bildschirmtastatur für Texteingabe aktivieren."
+  display_server:
+    name: Display-Server
+    description: "Display-Server: auto (empfohlen), cage (Wayland), weston (Wayland-Fallback), xorg (Legacy)."
+  browser_flags:
+    name: Zusätzliche Browser-Flags
+    description: "Zusätzliche Chromium-Kommandozeilen-Flags (nur für erfahrene Benutzer)."
+  api_enabled:
+    name: REST API
+    description: "REST API zur Steuerung des Kiosk-Displays aktivieren."
+  api_port:
+    name: API-Port
+    description: "Port für den REST API Server."

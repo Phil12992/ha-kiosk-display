@@ -1,0 +1,111 @@
+#!/command/with-contenv bashio
+
+# Source environment
+if [ -f /var/run/kiosk/env.sh ]; then
+    source /var/run/kiosk/env.sh
+fi
+
+export XDG_RUNTIME_DIR=/run/user/0
+mkdir -p "${XDG_RUNTIME_DIR}"
+chmod 0700 "${XDG_RUNTIME_DIR}"
+
+DISPLAY_SERVER=$(bashio::config 'display_server')
+
+# Auto-detect if not specified
+if [ "${DISPLAY_SERVER}" = "auto" ]; then
+    if command -v cage > /dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
+        DISPLAY_SERVER="cage"
+    elif command -v weston > /dev/null 2>&1 && [ -e /dev/dri/card0 ]; then
+        DISPLAY_SERVER="weston"
+    elif command -v Xorg > /dev/null 2>&1; then
+        DISPLAY_SERVER="xorg"
+    else
+        bashio::log.fatal "No display server available!"
+        exit 1
+    fi
+fi
+
+# Save chosen display server for other services
+echo "KIOSK_DISPLAY_SERVER=${DISPLAY_SERVER}" >> /var/run/kiosk/env.sh
+
+# Get rotation
+ROTATION=$(bashio::config 'rotate_display')
+OUTPUT_NUM=$(bashio::config 'output_number')
+
+bashio::log.info "Starting display server: ${DISPLAY_SERVER}"
+
+case "${DISPLAY_SERVER}" in
+    cage)
+        bashio::log.info "Starting Cage Wayland compositor..."
+        export WAYLAND_DISPLAY=wayland-0
+        
+        # Build rotation arg for cage
+        CAGE_ARGS=""
+        case "${ROTATION}" in
+            90)  CAGE_ARGS="-r" ;;
+            180) CAGE_ARGS="-r -r" ;;
+            270) CAGE_ARGS="-r -r -r" ;;
+        esac
+        
+        exec cage ${CAGE_ARGS} -- /usr/bin/kiosk-browser.sh
+        ;;
+    weston)
+        bashio::log.info "Starting Weston Wayland compositor..."
+        export WAYLAND_DISPLAY=wayland-0
+        
+        # Create weston config
+        WESTON_CFG="/run/user/0/weston.ini"
+        
+        # Map rotation to weston transform
+        WESTON_TRANSFORM="normal"
+        case "${ROTATION}" in
+            90)  WESTON_TRANSFORM="rotate-90" ;;
+            180) WESTON_TRANSFORM="rotate-180" ;;
+            270) WESTON_TRANSFORM="rotate-270" ;;
+        esac
+        
+        cat > "${WESTON_CFG}" <<EOF
+[core]
+idle-time=0
+
+[shell]
+locking=false
+
+[output]
+name=HDMI-A-${OUTPUT_NUM:-1}
+transform=${WESTON_TRANSFORM}
+EOF
+        exec weston --backend=drm-backend.so --config="${WESTON_CFG}" --log=/var/log/weston.log
+        ;;
+    xorg)
+        bashio::log.info "Starting Xorg display server (fallback)..."
+        export DISPLAY=:0
+        echo "DISPLAY=:0" >> /var/run/kiosk/env.sh
+        
+        # Generate xorg.conf from template
+        /usr/bin/display-detect.sh --xorg-config > /etc/X11/xorg.conf 2>/dev/null || true
+        
+        Xorg :0 vt7 -nolisten tcp -noreset &
+        XORG_PID=$!
+        
+        sleep 2
+        
+        # Start openbox
+        openbox --startup /dev/null &
+        
+        # Apply rotation
+        case "${ROTATION}" in
+            90)  xrandr --output HDMI-${OUTPUT_NUM:-1} --rotate left ;;
+            180) xrandr --output HDMI-${OUTPUT_NUM:-1} --rotate inverted ;;
+            270) xrandr --output HDMI-${OUTPUT_NUM:-1} --rotate right ;;
+        esac
+        
+        # Hide cursor
+        CURSOR_TIMEOUT=$(bashio::config 'cursor_timeout')
+        if [ "${CURSOR_TIMEOUT}" -gt 0 ]; then
+            unclutter -idle ${CURSOR_TIMEOUT} -root &
+        fi
+        
+        wait ${XORG_PID}
+        ;;
+esac

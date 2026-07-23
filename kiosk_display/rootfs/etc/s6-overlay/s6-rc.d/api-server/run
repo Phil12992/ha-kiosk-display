@@ -1,0 +1,21 @@
+#!/command/with-contenv bashio
+
+API_ENABLED=$(bashio::config 'api_enabled')
+if [ "${API_ENABLED}" != "true" ]; then
+    bashio::log.info "REST API is disabled, sleeping..."
+    exec sleep infinity
+fi
+
+API_PORT=$(bashio::config 'api_port')
+
+bashio::log.info "Starting Kiosk REST API on port ${API_PORT}..."
+
+# Source environment for display info
+if [ -f /var/run/kiosk/env.sh ]; then
+    source /var/run/kiosk/env.sh
+fi
+
+export KIOSK_API_PORT="${API_PORT}"
+export XDG_RUNTIME_DIR=/run/user/0
+
+exec python3 /usr/share/kiosk/api/server.py

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiosk Display - Connecting...</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #111;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+        }
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: #03a9f4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 2rem;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 0.5rem;
+        }
+        .status {
+            color: #888;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+        }
+        .error {
+            color: #f44336;
+            margin-top: 1rem;
+            display: none;
+        }
+        .ha-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 2rem;
+            opacity: 0.8;
+        }
+        .ha-logo svg {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="ha-logo">
+            <svg viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M240 224.762C240 233.18 233.18 240 224.762 240H15.238C6.82 240 0 233.18 0 224.762V15.238C0 6.82 6.82 0 15.238 0H224.762C233.18 0 240 6.82 240 15.238V224.762Z" fill="#18BCF2"/>
+                <path d="M120 40L40 120H70V200H110V150H130V200H170V120H200L120 40Z" fill="white"/>
+            </svg>
+        </div>
+        <div class="spinner"></div>
+        <h1>Connecting to Home Assistant...</h1>
+        <p class="status" id="status">Authenticating...</p>
+        <p class="error" id="error"></p>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const targetUrl = decodeURIComponent(params.get('url') || '');
+        const token = decodeURIComponent(params.get('token') || '');
+        const username = decodeURIComponent(params.get('username') || '');
+        const password = decodeURIComponent(params.get('password') || '');
+
+        const statusEl = document.getElementById('status');
+        const errorEl = document.getElementById('error');
+
+        function showError(msg) {
+            errorEl.textContent = msg;
+            errorEl.style.display = 'block';
+            statusEl.textContent = 'Retrying in 10 seconds...';
+            setTimeout(() => login(), 10000);
+        }
+
+        function navigateToTarget() {
+            statusEl.textContent = 'Loading dashboard...';
+            window.location.href = targetUrl;
+        }
+
+        async function loginWithToken() {
+            statusEl.textContent = 'Authenticating with token...';
+            
+            // Extract base URL from target
+            const url = new URL(targetUrl);
+            const baseUrl = url.origin;
+            
+            try {
+                // Verify token works
+                const response = await fetch(`${baseUrl}/api/`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    // Store token in localStorage for HA frontend
+                    const hassTokens = {
+                        hassUrl: baseUrl,
+                        access_token: token,
+                        token_type: 'Bearer'
+                    };
+                    localStorage.setItem('hassTokens', JSON.stringify(hassTokens));
+                    navigateToTarget();
+                } else {
+                    showError(`Token validation failed: ${response.status}`);
+                }
+            } catch (e) {
+                showError(`Connection failed: ${e.message}`);
+            }
+        }
+
+        async function loginWithCredentials() {
+            statusEl.textContent = 'Authenticating with credentials...';
+            
+            const url = new URL(targetUrl);
+            const baseUrl = url.origin;
+            
+            try {
+                // Step 1: Get auth flow
+                const flowResponse = await fetch(`${baseUrl}/auth/login_flow`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        client_id: baseUrl + '/',
+                        handler: ['homeassistant', null],
+                        redirect_uri: baseUrl + '/?auth_callback=1'
+                    })
+                });
+                
+                if (!flowResponse.ok) {
+                    showError('Could not initiate login flow');
+                    return;
+                }
+                
+                const flow = await flowResponse.json();
+                
+                // Step 2: Submit credentials
+                const loginResponse = await fetch(`${baseUrl}/auth/login_flow/${flow.flow_id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password,
+                        client_id: baseUrl + '/'
+                    })
+                });
+                
+                if (!loginResponse.ok) {
+                    showError('Login failed - check username/password');
+                    return;
+                }
+                
+                const loginResult = await loginResponse.json();
+                
+                if (loginResult.type === 'create_entry' && loginResult.result) {
+                    // Step 3: Exchange auth code for tokens
+                    const tokenResponse = await fetch(`${baseUrl}/auth/token`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({
+                            grant_type: 'authorization_code',
+                            code: loginResult.result,
+                            client_id: baseUrl + '/'
+                        })
+                    });
+                    
+                    if (tokenResponse.ok) {
+                        const tokens = await tokenResponse.json();
+                        
+                        // Store tokens for HA frontend
+                        const hassTokens = {
+                            hassUrl: baseUrl,
+                            access_token: tokens.access_token,
+                            refresh_token: tokens.refresh_token,
+                            token_type: tokens.token_type || 'Bearer',
+                            expires_in: tokens.expires_in || 1800
+                        };
+                        localStorage.setItem('hassTokens', JSON.stringify(hassTokens));
+                        navigateToTarget();
+                    } else {
+                        showError('Token exchange failed');
+                    }
+                } else {
+                    showError('Authentication failed');
+                }
+            } catch (e) {
+                showError(`Connection failed: ${e.message}`);
+            }
+        }
+
+        async function login() {
+            errorEl.style.display = 'none';
+            
+            if (!targetUrl) {
+                showError('No target URL specified');
+                return;
+            }
+            
+            // Check if already authenticated
+            try {
+                const stored = localStorage.getItem('hassTokens');
+                if (stored) {
+                    const tokens = JSON.parse(stored);
+                    if (tokens.access_token) {
+                        statusEl.textContent = 'Using cached authentication...';
+                        navigateToTarget();
+                        return;
+                    }
+                }
+            } catch (e) {
+                // Ignore parse errors
+            }
+            
+            if (token) {
+                await loginWithToken();
+            } else if (username && password) {
+                await loginWithCredentials();
+            } else {
+                // No credentials, just navigate
+                statusEl.textContent = 'No credentials configured, navigating directly...';
+                setTimeout(navigateToTarget, 1000);
+            }
+        }
+
+        // Start login
+        login();
+    </script>
+</body>
+</html>
